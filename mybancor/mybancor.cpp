@@ -18,7 +18,6 @@ typedef double real_type;
 #define TOKEN N(eosio.token)
 #define MYTOKEN N(mytoken) ///
 
-//#define MYTOKEN N(mytoken)
 #define MYWALLET N(mywallet)
 
 class cbt : public eosio::contract {

@@ -26,21 +26,27 @@ void token::create( account_name issuer,
        s.max_supply    = maximum_supply;
        s.issuer        = issuer;
     });
+
+    print(">>>token::create ", maximum_supply);
 }
 
 
 void token::issue( account_name to, asset quantity, string memo, uint64_t type = 0 )
 {
+    print(">>>token::issue ", quantity);
     auto sym = quantity.symbol;
     eosio_assert( sym.is_valid(), "invalid symbol name" );
     eosio_assert( memo.size() <= 256, "memo has more than 256 bytes" );
 
     auto sym_name = sym.name();
+    print(" ...sym_name: ", sym_name);
+
     stats statstable( _self, sym_name );
     auto existing = statstable.find( sym_name );
     eosio_assert( existing != statstable.end(), "token with symbol does not exist, create token before issue" );
     const auto& st = *existing;
 
+    print(" ...issuer: ", st.issuer);
     require_auth( st.issuer );
     eosio_assert( quantity.is_valid(), "invalid quantity" );
     eosio_assert( quantity.amount > 0, "must issue positive quantity" );
@@ -52,7 +58,7 @@ void token::issue( account_name to, asset quantity, string memo, uint64_t type =
        s.supply += quantity;
     });
 
-    add_lock_balance(to, quantity, type, st.issuer);
+    add_lock_balance(to, quantity, st.issuer, type);
 
     // add_balance( st.issuer, quantity, st.issuer );
 
@@ -119,6 +125,7 @@ void token::unlock( account_name owner, symbol_type sym ) {
 }
 
 void token::add_lock_balance(account_name owner, asset value, account_name ram_payer, uint64_t type = 0) {
+    print(" ...add_lock_balance: ", type);
     accounts to_acnts( _self, owner );
     if (type != 0) {
         // 1, 基石轮, 2.天使论 
