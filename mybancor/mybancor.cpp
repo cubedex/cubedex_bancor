@@ -40,7 +40,8 @@ class cbt : public eosio::contract {
       eosio_assert(token_supply.symbol.is_valid(), "invalid token_supply symbol");
       eosio_assert(token_supply.symbol != S(4,EOS), "token_supply symbol cannot be EOS");
       // set token_contract
-      MYTOKEN = token_contract;
+
+      account_name MYTOKEN = token_contract;
 
       //给MYWALLET账户转入EOS
       action(
@@ -69,6 +70,7 @@ class cbt : public eosio::contract {
             m.quote.balance.amount = eos_supply.amount;
             m.quote.balance.symbol = eos_supply.symbol;
             m.creator = creator;
+            m.contract = token_contract;
         });
 
         print(" >>>create emplace:", CBTCORE);
@@ -82,6 +84,7 @@ class cbt : public eosio::contract {
             m.quote.balance.amount = eos_supply.amount;
             m.quote.balance.symbol = eos_supply.symbol;
             m.creator = creator;
+            m.contract = token_contract;
         });
         // ERROR****
 
@@ -107,6 +110,8 @@ class cbt : public eosio::contract {
       print(" supply:", itr->supply);
       print(" base.balance:", itr->base.balance);
       print(" quote.balance", itr->quote.balance);
+
+      account_name MYTOKEN = itr->contract;
 
       if( itr != _market.end() ) {
         action(
@@ -149,6 +154,8 @@ class cbt : public eosio::contract {
       print(" base.balance:", itr->base.balance);
       print(" quote.balance", itr->quote.balance);
 
+      account_name MYTOKEN = itr->contract;
+
       if( itr != _market.end() ) {
         action(
             permission_level{ payer, N(active) },
@@ -178,8 +185,6 @@ class cbt : public eosio::contract {
 
     private:
 
-      account_name MYTOKEN;
-
       // @abi table markets i64
       struct exchange_state {
           //uint64_t id;
@@ -196,6 +201,7 @@ class cbt : public eosio::contract {
           connector base;
           connector quote;
           account_name  creator;
+          account_name  contract;
           uint64_t primary_key()const { return supply.symbol;}
 
           asset convert_to_exchange( connector& c, asset in ){
@@ -278,7 +284,7 @@ class cbt : public eosio::contract {
             return from;
           }
 
-          EOSLIB_SERIALIZE( exchange_state, (supply)(base)(quote)(creator))
+          EOSLIB_SERIALIZE( exchange_state, (supply)(base)(quote)(creator)(contract))
       };
 
       typedef eosio::multi_index<N(markets), exchange_state> markets;
