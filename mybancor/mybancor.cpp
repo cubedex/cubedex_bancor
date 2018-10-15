@@ -16,7 +16,7 @@ typedef double real_type;
 
 // token 发EOS和CBT币
 #define TOKEN N(eosio.token)
-#define MYTOKEN N(mytoken) ///
+//#define MYTOKEN N(mytoken) /// create param
 
 #define MYWALLET N(mywallet)
 
@@ -30,7 +30,7 @@ class cbt : public eosio::contract {
       print( "Hello, ", name{user} );
     }
 
-    void create(account_name creator, asset eos_supply, asset token_supply) {
+    void create(account_name creator, asset eos_supply, asset token_supply, account_name token_contract) {
       require_auth(_self);
 
       print(" >>>create eos_supply:", eos_supply, " token_supply:", token_supply);
@@ -39,7 +39,8 @@ class cbt : public eosio::contract {
       eosio_assert(token_supply.amount > 0, "invalid token_supply amount");
       eosio_assert(token_supply.symbol.is_valid(), "invalid token_supply symbol");
       eosio_assert(token_supply.symbol != S(4,EOS), "token_supply symbol cannot be EOS");
-
+      // set token_contract
+      MYTOKEN = token_contract;
 
       //给MYWALLET账户转入EOS
       action(
@@ -176,6 +177,9 @@ class cbt : public eosio::contract {
 
 
     private:
+
+      account_name MYTOKEN;
+
       // @abi table markets i64
       struct exchange_state {
           //uint64_t id;

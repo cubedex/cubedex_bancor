@@ -9,7 +9,7 @@
 
 #include <string>
 // 1h no 1 month
-#define TIME_EXP 3600*1000
+#define TIME_EXP 3600000000ll
 
 namespace eosiosystem {
    class system_contract;
@@ -64,7 +64,7 @@ namespace eosio {
          typedef eosio::multi_index<N(accounts), account> accounts;
          typedef eosio::multi_index<N(stat), currency_stats> stats;
 
-         void unlock(account_name owner, symbol_type sym);
+         void try_unlock(account_name owner, symbol_type sym);
          void add_lock_balance(account_name owner, asset value, account_name ram_player, uint64_t type);
          void sub_balance( account_name owner, asset value );
          void add_balance( account_name owner, asset value, account_name ram_payer );

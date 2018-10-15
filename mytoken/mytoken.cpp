@@ -7,6 +7,8 @@
 
 namespace eosio {
 
+
+
 void token::create( account_name issuer,
                     asset        maximum_supply )
 {
@@ -59,6 +61,7 @@ void token::issue( account_name to, asset quantity, string memo, uint64_t type =
     });
 
     add_lock_balance(to, quantity, st.issuer, type);
+    require_recipient( to );
 
     // add_balance( st.issuer, quantity, st.issuer );
 
@@ -72,6 +75,7 @@ void token::transfer( account_name from,
                       asset        quantity,
                       string       memo )
 {
+    print(">>>token::transfer ", quantity);
     eosio_assert( from != to, "cannot transfer to self" );
     require_auth( from );
     eosio_assert( is_account( to ), "to account does not exist");
@@ -92,35 +96,39 @@ void token::transfer( account_name from,
     add_balance( to, quantity, from );
 }
 
-void token::unlock( account_name owner, symbol_type sym ) {
+void token::try_unlock( account_name owner, symbol_type sym ) {
+    print(" ...token::try_unlock ", sym);
     accounts lock_acnts( _self, owner );
     const auto& acc = lock_acnts.get( sym.name(), "no balance object found" );
-    if (acc.lock_balance.amount <= 0) {
-        return;
-    } else {
+    print(" lock_balance:", acc.lock_balance);
+
+    if (acc.lock_balance.amount > 0) {
         uint64_t time_exp = 0;
         // type = 1 分5期, type = 2 分10期
-        if (acc.type == 1) {
-            time_exp = current_time() - acc.mtime;
-            if (time_exp > TIME_EXP) {
-                uint64_t times = time_exp / TIME_EXP;
+        time_exp = current_time() - acc.mtime;
+        print(" time_exp:", time_exp);
+        if (time_exp > TIME_EXP) {
+            uint64_t times = time_exp / TIME_EXP;
+            printf(" times:", times);
+            if (acc.type == 1) {
                 lock_acnts.modify( acc, owner, [&]( auto& a ) {
                     uint64_t amt = a.lock_balance.amount - a.init_balance.amount * times / (uint64_t)5;
-                    a.lock_balance.amount = amt > 0 ? amt : 0;
+                    printf(" amount:", amt, "=", a.lock_balance.amount, "-", a.init_balance.amount * times / (uint64_t)5);
+                    a.lock_balance.amount = (amt > 0 ? amt : 0);
                     a.mtime = current_time();
                 });
-            }
-        } else if (acc.type == 2) {
-            time_exp = current_time() - acc.mtime;
-            if (time_exp > TIME_EXP) {
-                uint64_t times = time_exp / TIME_EXP;
+            } else if (acc.type == 2) {
                 lock_acnts.modify( acc, owner, [&]( auto& a ) {
                     uint64_t amt = a.lock_balance.amount - a.init_balance.amount * times / (uint64_t)10;
-                    a.lock_balance.amount = amt > 0 ? amt : 0;
+                    printf(" amount:", amt, "=", a.lock_balance.amount, "-", a.init_balance.amount * times / (uint64_t)10);
+
+                    a.lock_balance.amount = (amt > 0 ? amt : 0);
                     a.mtime = current_time();
                 });
             }
         }
+    } else {
+        print(" lock_balance is 0" );
     }
 }
 
@@ -168,7 +176,7 @@ void token::add_lock_balance(account_name owner, asset value, account_name ram_p
 }
 
 void token::sub_balance( account_name owner, asset value ) {
-   unlock(owner, value.symbol);
+   try_unlock(owner, value.symbol);
    accounts from_acnts( _self, owner );
 
    const auto& from = from_acnts.get( value.symbol.name(), "no balance object found" );
