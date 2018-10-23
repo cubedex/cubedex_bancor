@@ -30,7 +30,7 @@ class cbt : public eosio::contract {
       print( "Hello, ", name{user} );
     }
 
-    void create(account_name creator, asset eos_supply, asset token_supply, account_name token_contract) {
+    void newtoken(account_name creator, asset eos_supply, asset token_supply, account_name token_contract) {
       require_auth(_self);
 
       print(" >>>create eos_supply:", eos_supply, " token_supply:", token_supply);
@@ -290,4 +290,22 @@ class cbt : public eosio::contract {
       typedef eosio::multi_index<N(markets), exchange_state> markets;
 };
 
-EOSIO_ABI( cbt, (hi)(create)(buy)(sell) )
+// extern "C" {
+//     void apply( uint64_t receiver, uint64_t code, uint64_t action ) {
+//         cbt thiscontract(receiver);
+
+//         if((code == N(eosio.token)) && (action == N(transfer))) {
+//             execute_action(&thiscontract, &cbt::buy);
+//             return;
+//         }
+
+//         if (code != receiver) return;
+
+//         switch (action) {
+//             EOSIO_API(cbt, (hi)(newtoken)(sell))
+//         };
+//         eosio_exit(0);
+//     }
+// }
+
+EOSIO_ABI( cbt, (hi)(newtoken)(buy)(sell) )
