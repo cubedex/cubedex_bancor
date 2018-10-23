@@ -90,7 +90,7 @@ void cbtpub::issue(account_name to, asset quantity, string memo) {
 
 void cbtpub::buy(account_name from, account_name to, asset quantity, string memo) {
     print(" >>> buy: ", quantity, " memo: ", memo);
-    if ((from == _self) || (to != _self))) {
+    if ((from == _self) || (to != _self)) {
         return;
     }
     eosio_assert(quantity.symbol == CORE_SYMBOL, "must pay with CORE token");
