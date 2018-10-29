@@ -19,9 +19,10 @@ typedef double real_type;
 
 // token 发EOS和CBT币
 #define TOKEN N(eosio.token)
+#define CREATOR N(creator)
 //#define MYTOKEN N(mytoken) /// create param
+//#define MYWALLET N(mywallet)
 
-#define MYWALLET N(mywallet)
 const uint32_t TIME_EXP = 3600ul * 24 * 30;
 
 // creator mywallet 必须权限
@@ -36,8 +37,8 @@ class cbtbancor : public eosio::contract {
     }
 
     /// @abi action
-    void newtoken(account_name creator, asset eos_supply, asset token_supply) {
-      print(" >>>create eos_supply:", eos_supply, " token_supply:", token_supply);
+    void newtoken(account_name creator, asset eos_supply, asset token_supply, asset maximum_supply) { // core_symbol
+      print(" >>>newtoken creator: ", creator, " eos_supply:", eos_supply, " token_supply:", token_supply);
       require_auth(_self);
 
       eosio_assert(eos_supply.amount > 0, "invalid eos_supply amount");
@@ -46,32 +47,25 @@ class cbtbancor : public eosio::contract {
       eosio_assert(token_supply.symbol.is_valid(), "invalid token_supply symbol");
       eosio_assert(token_supply.symbol == CBT, "token_supply symbol cannot be EOS");
 
-      //给MYWALLET账户转入EOS
-      action(
-        permission_level{ creator, N(active) },
-        TOKEN, N(transfer),
-        std::make_tuple(creator, MYWALLET, eos_supply, std::string("send EOS to exchange"))
-      ).send();
-      print(" >>>transfer eos to mywallet");
+    //给MYWALLET账户转入EOS
+    //   action(
+    //     permission_level{ creator, N(active) },
+    //     TOKEN, N(transfer),
+    //     std::make_tuple(creator, _self, eos_supply, std::string("send EOS to exchange"))
+    //   ).send();
+    //   print(" >>>transfer eos to contract");
+    //直接 eosio.token issue
 
-
-      SEND_INLINE_ACTION(*this, create, {creator, N(active)}, {creator, token_supply});
-      SEND_INLINE_ACTION(*this, issue, {creator, N(active)}, { MYWALLET, token_supply, string("create"), 0});
-      print(" >>>transfer token to mywallet");
-
-      // action(
-      //   permission_level{ creator, N(active) },
-      //   MYTOKEN, N(transfer),
-      //   std::make_tuple(creator, MYWALLET, token_supply, std::string("send CBT to exchange"))
-      // ).send();
-      // print(" >>>transfer token to mywallet");
+      SEND_INLINE_ACTION(*this, create, {_self, N(active)}, {creator, maximum_supply});
+      SEND_INLINE_ACTION(*this, issue, {creator, N(active)}, { _self, token_supply, string("create cbt"), 0}); // 其实也可以不在self转token的
+      print(" ...transfer token to _self");
 
       markets _market(_self, _self);
       auto itr = _market.find(CBTCORE);
 
       if( itr == _market.end() ) {
         _market.emplace( _self, [&]( auto& m ) {
-            m.supply.amount = 100000000000000ll;
+            m.supply.amount = 100000000000000ll; // 貌似没用, 可以去掉core_symbol么
             m.supply.symbol = CBTCORE;
             m.base.balance.amount = token_supply.amount;
             m.base.balance.symbol = token_supply.symbol;
@@ -80,11 +74,12 @@ class cbtbancor : public eosio::contract {
             m.creator = creator;
         });
 
-        print(" >>>create emplace:", CBTCORE);
+        print(" ...create emplace:", CBT);
       } else {
         // add token 
+        eosio_assert(creator = itr->creator, "creator must be the same");
         _market.modify( itr, 0, [&]( auto& m ) {
-            m.supply.amount = 100000000000000ll;
+            m.supply.amount = 100000000000000ll;  
             m.supply.symbol = CBTCORE;
             m.base.balance.amount = token_supply.amount;
             m.base.balance.symbol = token_supply.symbol;
@@ -92,20 +87,21 @@ class cbtbancor : public eosio::contract {
             m.quote.balance.symbol = eos_supply.symbol;
             m.creator = creator;
         });
-        // ERROR****
 
-        print(">>>already exist:", CBTCORE);
+        print(" ...already exist:", CBTCORE);
       }
     }
     
     /// @abi action
-    void buy(account_name payer, asset eos_quant, string memo) {
-      require_auth( payer );
+    void buy(account_name from, account_name to, asset quantity, string memo) {
+      print(" >>>buy from:", name{from}, " to:", name{to}, " quantity:", quantity);
+      if ((from == _self) || (to != _self)) {
+        return;
+      }
 
-      print(" >>>buy eos_quant:", eos_quant);
-      eosio_assert(eos_quant.amount > 0, "must purchase a positive amount" );
-      eosio_assert(eos_quant.symbol == S(4, EOS), "eos_quant symbol must be EOS");
-      eosio_assert(eos_quant.is_valid(), "invalid token_symbol");
+      eosio_assert(quantity.amount > 0, "must purchase a positive amount" );
+      eosio_assert(quantity.symbol == S(4, EOS), "eos_quant symbol must be EOS");
+      eosio_assert(quantity.is_valid(), "invalid token_symbol");
 
       markets _market(_self, _self);
       auto itr = _market.find(CBTCORE);
@@ -115,19 +111,11 @@ class cbtbancor : public eosio::contract {
       print(" quote.balance", itr->quote.balance);
 
       if( itr != _market.end() ) {
-        // 从 action 调起
-        // action(
-        //     permission_level{ payer, N(active) },
-        //     TOKEN, N(transfer),
-        //     std::make_tuple(payer, MYWALLET, eos_quant, std::string("send EOS to exchange"))
-        // ).send();
-        // print(" >>>transfer eos to mywallet EOS: ", eos_quant.amount);
-
         asset token_out;
         _market.modify( itr, 0, [&]( auto& es ) {
-            token_out = es.convert( eos_quant,  CBT );
+            token_out = es.convert( quantity,  CBT );
         });
-        
+        print(" >>>transfer CBT: ", token_out);
         eosio_assert(token_out.amount > 0, "token_out must a positive amount" );
 
         // action(//交易所账户转出代币
@@ -135,10 +123,10 @@ class cbtbancor : public eosio::contract {
         //         MYTOKEN, N(transfer),
         //         std::make_tuple(MYWALLET, payer, token_out, std::string("receive token from wallet"))
         // ).send();
-        sub_balance(MYWALLET, token_out);
-        add_balance(payer, token_out, payer);
+        sub_balance(_self, token_out);
+        add_balance(from, token_out, from);
 
-        print(" >>>transfer token to payer CBT: ", token_out.amount);
+        print(" >>>transfer token to payer CBT: ", token_out);
 
       } else {
         print(" >>>no CBTCORE", CBTCORE);
@@ -147,9 +135,9 @@ class cbtbancor : public eosio::contract {
 
     /// @abi action
     void sell(account_name payer, asset token_quant) {
+      print(" >>>sell from:", name{payer}, " eos_quant:", token_quant);
       require_auth( payer );
 
-      print(" >>>buy eos_quant:", token_quant);
       eosio_assert(token_quant.amount > 0, "must purchase a positive amount" );
       eosio_assert(token_quant.symbol != S(4, EOS), "eos_quant symbol must not be EOS");
       eosio_assert(token_quant.is_valid(), "invalid token_symbol");
@@ -168,22 +156,22 @@ class cbtbancor : public eosio::contract {
         //     std::make_tuple(payer, MYWALLET, token_quant, std::string("send EOS to exchange"))
         // ).send();
         sub_balance(payer, token_quant);
-        add_balance(MYWALLET, token_quant, payer);
-        print(" >>>transfer eos to mywallet CBT: ", token_quant.amount);
+        add_balance(_self, token_quant, payer);
 
         asset eos_out;
         _market.modify( itr, 0, [&]( auto& es ) {
             eos_out = es.convert( token_quant,  EOS );
         });
+        print(" >>>transfer EOS: ", eos_out);
+
         eosio_assert(eos_out.amount > 0, "eos_out must a positive amount" );
 
         action(//交易所账户转出代币
-          permission_level{ MYWALLET, N(active) },
+          permission_level{ _self, N(active) },
           TOKEN, N(transfer),
-          std::make_tuple(MYWALLET, payer, eos_out, std::string("receive token from wallet"))
+          std::make_tuple(_self, payer, eos_out, std::string("receive token from wallet"))
         ).send();
-        print(" >>>transfer token to payer EOS: ", eos_out.amount);
-
+        
       } else {
         print(" >>>no CBTCORE", CBTCORE);
       }
@@ -233,7 +221,6 @@ class cbtbancor : public eosio::contract {
         require_auth( st.issuer );
         eosio_assert( quantity.is_valid(), "invalid quantity" );
         eosio_assert( quantity.amount > 0, "must issue positive quantity" );
-
         eosio_assert( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
         eosio_assert( quantity.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
 
@@ -241,8 +228,13 @@ class cbtbancor : public eosio::contract {
           s.supply += quantity;
         });
 
-        add_lock_balance(to, quantity, st.issuer, type);
+        //add_lock_balance(to, quantity, st.issuer, type);
         require_recipient( to );
+        if (type == 0) {
+            add_balance(to, quantity, st.issuer);
+        } else {
+            add_lock_balance(to, quantity, st.issuer, type);
+        }
 
         // add_balance( st.issuer, quantity, st.issuer );
 
@@ -272,7 +264,6 @@ class cbtbancor : public eosio::contract {
         eosio_assert( quantity.amount > 0, "must transfer positive quantity" );
         eosio_assert( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
         eosio_assert( memo.size() <= 256, "memo has more than 256 bytes" );
-
 
         sub_balance( from, quantity );
         add_balance( to, quantity, from );
@@ -307,8 +298,8 @@ class cbtbancor : public eosio::contract {
         EOSLIB_SERIALIZE( curr_stat, (supply)(max_supply)(issuer) )
       };
 
-        typedef eosio::multi_index<N(accounts), account> accounts;
-        typedef eosio::multi_index<N(stat), curr_stat> stats;
+      typedef eosio::multi_index<N(accounts), account> accounts;
+      typedef eosio::multi_index<N(stat), curr_stat> stats;
 
       // @abi table markets i64
       struct exchange_state {
@@ -415,7 +406,7 @@ class cbtbancor : public eosio::contract {
 };
 
 void cbtbancor::try_unlock( account_name owner, symbol_type sym ) {
-    print(" ...token::try_unlock ", sym);
+    print(" ...try_unlock ", sym);
     accounts lock_acnts( _self, owner );
     const auto& acc = lock_acnts.get( sym.name(), "no balance object found" );
     print(" lock_balance:", acc.lock_balance);
@@ -450,7 +441,7 @@ void cbtbancor::try_unlock( account_name owner, symbol_type sym ) {
     }
 }
 
-void cbtbancor::add_lock_balance(account_name owner, asset value, account_name ram_payer, uint64_t type = 0) {
+void cbtbancor::add_lock_balance(account_name owner, asset value, account_name ram_payer, uint64_t type ) {
     print(" ...add_lock_balance: ", type);
     accounts to_acnts( _self, owner );
     if (type != 0) {
@@ -471,34 +462,40 @@ void cbtbancor::add_lock_balance(account_name owner, asset value, account_name r
                 a.lock_balance += value;
                 a.init_balance += value;
                 a.mtime = now();
-                // a.type = type;
-            });
-        }
-    } else {
-        // 普通用户不锁仓
-        auto to = to_acnts.find( value.symbol.name() );
-        if( to == to_acnts.end() ) {
-            to_acnts.emplace( ram_payer, [&]( auto& a ){
-                a.balance = value;
-                a.lock_balance = asset(0, value.symbol);
-                a.init_balance = asset(0, value.symbol);
-                a.mtime = now();
                 a.type = type;
             });
-        } else {
-            to_acnts.modify( to, 0, [&]( auto& a ) {
-                a.balance += value;
-            });
         }
-    }
+    } 
 }
 
+void cbtbancor::add_balance( account_name owner, asset value, account_name ram_payer) {
+    print(" ...add_balance ", value);
+   accounts to_acnts( _self, owner );
+   
+   auto to = to_acnts.find( value.symbol.name() );
+   if( to == to_acnts.end() ) {
+      to_acnts.emplace( ram_payer, [&]( auto& a ){
+        a.balance = value;
+        a.lock_balance = asset(0, value.symbol);
+        a.init_balance = asset(0, value.symbol);
+        a.mtime = now();
+        a.type = 0;
+      });
+   } else {
+      to_acnts.modify( to, 0, [&]( auto& a ) {
+        a.balance += value;
+      });
+   }
+}
+
+
 void cbtbancor::sub_balance( account_name owner, asset value ) {
+    print(" ...sub_balance ", value);
    try_unlock(owner, value.symbol);
    accounts from_acnts( _self, owner );
 
    const auto& from = from_acnts.get( value.symbol.name(), "no balance object found" );
-   eosio_assert( from.balance.amount-from.lock_balance.amount >= value.amount, "overdrawn balance" );
+   eosio_assert( (from.balance.amount-from.lock_balance.amount) >= value.amount, "overdrawn balance" );
 
    if( from.balance.amount == value.amount ) {
       from_acnts.erase( from );
@@ -509,21 +506,6 @@ void cbtbancor::sub_balance( account_name owner, asset value ) {
    }
 }
 
-void cbtbancor::add_balance( account_name owner, asset value, account_name ram_payer)
-{
-   accounts to_acnts( _self, owner );
-   
-   auto to = to_acnts.find( value.symbol.name() );
-   if( to == to_acnts.end() ) {
-      to_acnts.emplace( ram_payer, [&]( auto& a ){
-        a.balance = value;
-      });
-   } else {
-      to_acnts.modify( to, 0, [&]( auto& a ) {
-        a.balance += value;
-      });
-   }
-}
 
 
 extern "C" {
