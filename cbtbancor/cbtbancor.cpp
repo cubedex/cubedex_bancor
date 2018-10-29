@@ -117,14 +117,15 @@ class cbtbancor : public eosio::contract {
         });
         print(" >>>transfer CBT: ", token_out);
         eosio_assert(token_out.amount > 0, "token_out must a positive amount" );
-
-        // action(//交易所账户转出代币
+        //交易所账户转出代币
+        // action(
         //         permission_level{ MYWALLET, N(active) },
         //         MYTOKEN, N(transfer),
         //         std::make_tuple(MYWALLET, payer, token_out, std::string("receive token from wallet"))
         // ).send();
-        sub_balance(_self, token_out);
-        add_balance(from, token_out, from);
+        SEND_INLINE_ACTION(*this, transfer, {_self, N(active)}, {_self, from, token_out, "buy CBT"});
+        // sub_balance(_self, token_out);
+        // add_balance(from, token_out, from);
 
         print(" >>>transfer token to payer CBT: ", token_out);
 
@@ -155,6 +156,8 @@ class cbtbancor : public eosio::contract {
         //     MYTOKEN, N(transfer),
         //     std::make_tuple(payer, MYWALLET, token_quant, std::string("send EOS to exchange"))
         // ).send();
+
+        // 不能取得用户权限
         sub_balance(payer, token_quant);
         add_balance(_self, token_quant, payer);
 
@@ -169,7 +172,7 @@ class cbtbancor : public eosio::contract {
         action(//交易所账户转出代币
           permission_level{ _self, N(active) },
           TOKEN, N(transfer),
-          std::make_tuple(_self, payer, eos_out, std::string("receive token from wallet"))
+          std::make_tuple(_self, payer, eos_out, std::string("get EOS"))
         ).send();
         
       } else {

@@ -1,16 +1,15 @@
-#unfinish
 
 eosiocpp -o cbtbancor.wast cbtbancor.cpp 
 eosiocpp -g cbtbancor.abi cbtbancor.cpp
 
-cleos create account eosio cbtban1 EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN
-cleos create account eosio creator EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN
+cleos create account eosio cbtban1 EOS77wJaBDtNMZyme7eNVQsWZs8ocsyZgL3m5kS8u6JgmCYrAPRgA EOS77wJaBDtNMZyme7eNVQsWZs8ocsyZgL3m5kS8u6JgmCYrAPRgA
+cleos create account eosio creator EOS77wJaBDtNMZyme7eNVQsWZs8ocsyZgL3m5kS8u6JgmCYrAPRgA EOS77wJaBDtNMZyme7eNVQsWZs8ocsyZgL3m5kS8u6JgmCYrAPRgA
 
-cleos  set account permission creator active '{"threshold": 1,"keys": [{"key": "EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN","weight": 1}],"accounts": [{"permission":{"actor":"cbtban1","permission":"eosio.code"},"weight":1}]}' owner -p creator
-cleos  set account permission cbtban1 active '{"threshold": 1,"keys": [{"key": "EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN","weight": 1}],"accounts": [{"permission":{"actor":"cbtban1","permission":"eosio.code"},"weight":1}]}' owner -p cbtban1
+cleos  set account permission creator active '{"threshold": 1,"keys": [{"key": "EOS77wJaBDtNMZyme7eNVQsWZs8ocsyZgL3m5kS8u6JgmCYrAPRgA","weight": 1}],"accounts": [{"permission":{"actor":"cbtban1","permission":"eosio.code"},"weight":1}]}' owner -p creator
+cleos  set account permission cbtban1 active '{"threshold": 1,"keys": [{"key": "EOS77wJaBDtNMZyme7eNVQsWZs8ocsyZgL3m5kS8u6JgmCYrAPRgA","weight": 1}],"accounts": [{"permission":{"actor":"cbtban1","permission":"eosio.code"},"weight":1}]}' owner -p cbtban1
 
-# cleos create account eosio mywallet EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN
-# cleos  set account permission mywallet active '{"threshold": 1,"keys": [{"key": "EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN","weight": 1}],"accounts": [{"permission":{"actor":"cbtban1","permission":"eosio.code"},"weight":1}]}' owner -p mywallet
+# cleos create account eosio mywallet EOS77wJaBDtNMZyme7eNVQsWZs8ocsyZgL3m5kS8u6JgmCYrAPRgA EOS77wJaBDtNMZyme7eNVQsWZs8ocsyZgL3m5kS8u6JgmCYrAPRgA
+# cleos  set account permission mywallet active '{"threshold": 1,"keys": [{"key": "EOS77wJaBDtNMZyme7eNVQsWZs8ocsyZgL3m5kS8u6JgmCYrAPRgA","weight": 1}],"accounts": [{"permission":{"actor":"cbtban1","permission":"eosio.code"},"weight":1}]}' owner -p mywallet
 
 cleos set contract cbtban1 ../cbtbancor
 
