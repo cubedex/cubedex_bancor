@@ -95,7 +95,7 @@ class cbtbancor : public eosio::contract {
     /// @abi action
     void buy(account_name from, account_name to, asset quantity, string memo) {
       print(" >>>buy from:", name{from}, " to:", name{to}, " quantity:", quantity);
-      if ((from == _self) || (to != _self)) {
+      if ((from == _self) || (to != _self) || (from == N(eosio))) {
         return;
       }
 
