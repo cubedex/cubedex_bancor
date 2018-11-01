@@ -94,9 +94,18 @@ class cbtbancor : public eosio::contract {
     
     /// @abi action
     void buy(account_name from, account_name to, asset quantity, string memo) {
-      print(" >>>buy from:", name{from}, " to:", name{to}, " quantity:", quantity);
+      print(" >>>buy from:", name{from}, " to:", name{to}, " quantity:", quantity, " memo:", memo);
       if ((from == _self) || (to != _self) || (from == N(eosio))) {
         return;
+      }
+
+      string name_str;
+      account_name buyer;
+
+      if (memo.find("-name") != string::npos) {
+          auto pos = memo.find("-name");
+          name_str = memo.substr(0, pos);
+          print(name_str);
       }
 
       eosio_assert(quantity.amount > 0, "must purchase a positive amount" );
@@ -106,16 +115,16 @@ class cbtbancor : public eosio::contract {
       markets _market(_self, _self);
       auto itr = _market.find(CBTCORE);
 
-      print(" supply:", itr->supply);
-      print(" base.balance:", itr->base.balance);
-      print(" quote.balance", itr->quote.balance);
+      //print(" supply:", itr->supply);
+      //print(" base.balance:", itr->base.balance);
+      //print(" quote.balance", itr->quote.balance);
 
       if( itr != _market.end() ) {
         asset token_out;
         _market.modify( itr, 0, [&]( auto& es ) {
             token_out = es.convert( quantity,  CBT );
         });
-        print(" >>>transfer CBT: ", token_out);
+        print(" ...transfer CBT: ", token_out);
         eosio_assert(token_out.amount > 0, "token_out must a positive amount" );
         //交易所账户转出代币
         // action(
@@ -123,21 +132,24 @@ class cbtbancor : public eosio::contract {
         //         MYTOKEN, N(transfer),
         //         std::make_tuple(MYWALLET, payer, token_out, std::string("receive token from wallet"))
         // ).send();
-        SEND_INLINE_ACTION(*this, transfer, {_self, N(active)}, {_self, from, token_out, "buy CBT"});
+        buyer = string_to_name(name_str.c_str());
+        string token_memo = name{buyer}.to_string() + " buy EOS:" + to_string(quantity.amount) + " to CBT:" + to_string(token_out.amount);
+        print(" >>>", token_memo);
+        SEND_INLINE_ACTION(*this, transfer, {_self, N(active)}, {_self, buyer, token_out, token_memo});
         // sub_balance(_self, token_out);
         // add_balance(from, token_out, from);
 
-        print(" >>>transfer token to payer CBT: ", token_out);
+        print(" ...transfer CBT: ", token_out, " to:", name{buyer});
 
       } else {
-        print(" >>>no CBTCORE", CBTCORE);
+        print(" ...no CBTCORE", CBTCORE);
       }
     }
 
     /// @abi action
-    void sell(account_name payer, asset token_quant) {
-      print(" >>>sell from:", name{payer}, " eos_quant:", token_quant);
-      require_auth( payer );
+    void sell(account_name from, asset token_quant, account_name eoswallet) {
+      print(" >>>sell from:", name{from}, " eos_quant:", token_quant);
+      require_auth( from );
 
       eosio_assert(token_quant.amount > 0, "must purchase a positive amount" );
       eosio_assert(token_quant.symbol != S(4, EOS), "eos_quant symbol must not be EOS");
@@ -151,28 +163,30 @@ class cbtbancor : public eosio::contract {
       print(" quote.balance", itr->quote.balance);
 
       if( itr != _market.end() ) {
-        // action(
-        //     permission_level{ payer, N(active) },
-        //     MYTOKEN, N(transfer),
-        //     std::make_tuple(payer, MYWALLET, token_quant, std::string("send EOS to exchange"))
-        // ).send();
-
-        // 不能取得用户权限
-        sub_balance(payer, token_quant);
-        add_balance(_self, token_quant, payer);
-
         asset eos_out;
         _market.modify( itr, 0, [&]( auto& es ) {
             eos_out = es.convert( token_quant,  EOS );
         });
         print(" >>>transfer EOS: ", eos_out);
-
         eosio_assert(eos_out.amount > 0, "eos_out must a positive amount" );
+
+        // action(
+        //     permission_level{ from, N(active) },
+        //     MYTOKEN, N(transfer),
+        //     std::make_tuple(from, MYWALLET, token_quant, std::string("send EOS to exchange"))
+        // ).send();
+
+        // 不能取得用户权限
+        string token_memo = name{from}.to_string() + " sell CBT:" + to_string(token_quant.amount) + " to EOS:" + to_string(eos_out.amount);
+        print(token_memo);
+        SEND_INLINE_ACTION(*this, transfer, {from, N(active)}, {from, _self, token_quant, token_memo});
+        // sub_balance(from, token_quant);
+        // add_balance(_self, token_quant, from);
 
         action(//交易所账户转出代币
           permission_level{ _self, N(active) },
           TOKEN, N(transfer),
-          std::make_tuple(_self, payer, eos_out, std::string("get EOS"))
+          std::make_tuple(_self, eoswallet, eos_out, std::string(name{from}.to_string() + "-out"))
         ).send();
         
       } else {
@@ -323,6 +337,7 @@ class cbtbancor : public eosio::contract {
           uint64_t primary_key()const { return supply.symbol;}
 
           asset convert_to_exchange( connector& c, asset in ){
+            print(" ...convert_to_exchange c.balance: ", c.balance, " in:", in);
             real_type R(supply.amount);
             real_type C(c.balance.amount+in.amount);
             real_type F(c.weight/1000.0);
@@ -330,15 +345,21 @@ class cbtbancor : public eosio::contract {
             real_type ONE(1.0);
 
             real_type E = -R * (ONE - std::pow( ONE + T / C, F) );
+            
             //print( "E: ", E, "\n");
             int64_t issued = int64_t(E);
+            print( " ...func: ", R, " * (pow(", ONE,  " + ", T, " / ", C, ", ", F, ") - ", ONE, ")");
+            print( " = E: ", E, " issue: ", issued);
 
             supply.amount += issued;
             c.balance.amount += in.amount;
 
             return asset( issued, supply.symbol );
           }
+
+
           asset convert_from_exchange( connector& c, asset in ){
+            print(" ...convert_from_exchange c.balance:", c.balance, " in:", in);
             eosio_assert( in.symbol== supply.symbol, "unexpected asset symbol input" );
 
             real_type R(supply.amount - in.amount);
@@ -357,6 +378,8 @@ class cbtbancor : public eosio::contract {
             real_type T = C * (std::pow( ONE + E/R, F) - ONE);
             //print( "T: ", T, "\n");
             int64_t out = int64_t(T);
+            print( " ...func:", C, " * (pow(", ONE,  " + ", E, " / ", R, ", ", F, ") - ", ONE, ")");
+            print( " = T: ", T, " out: ", out);
 
             supply.amount -= in.amount;
             c.balance.amount -= out;
@@ -364,19 +387,11 @@ class cbtbancor : public eosio::contract {
             return asset( out, c.balance.symbol );
           }
           asset convert( asset from, symbol_type to ){
+            print(" ...convert from:", from, " to:"); to.print();
             auto sell_symbol  = from.symbol;
             auto ex_symbol    = supply.symbol;
             auto base_symbol  = base.balance.symbol;
             auto quote_symbol = quote.balance.symbol;
-
-            // print( "From: ", from, " TO ", asset( 0,to), "\t" );
-            // print( "base: ", base_symbol, "\t" );
-            // print( "quote: ", quote_symbol, "\t" );
-            // print( "ex: ", supply.symbol, "\t" );
-            // print( "supply.amount:", supply.amount, "\t");
-            // print( "base.amount:", base.balance.amount, "\t");
-            // print( "quote.amount:", quote.balance.amount, "\t");
-
 
             if( sell_symbol != ex_symbol ) {
                 if( sell_symbol == base_symbol ) {
