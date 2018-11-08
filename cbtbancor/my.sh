@@ -2,6 +2,8 @@
 eosiocpp -o cbtbancor.wast cbtbancor.cpp 
 eosiocpp -g cbtbancor.abi cbtbancor.cpp
 
+cleos set contract cbtban1 ../cbtbancor
+
 cleos create account eosio cbtban1 EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN
 cleos create account eosio creator EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN
 
@@ -10,8 +12,6 @@ cleos  set account permission cbtban1 active '{"threshold": 1,"keys": [{"key": "
 
 # cleos create account eosio mywallet EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN
 # cleos  set account permission mywallet active '{"threshold": 1,"keys": [{"key": "EOS6PTWVKBcpeDhAwV6csW2BdNSPJcyyAgaPGPWW71xte89GY2WXN","weight": 1}],"accounts": [{"permission":{"actor":"cbtban1","permission":"eosio.code"},"weight":1}]}' owner -p mywallet
-
-cleos set contract cbtban1 ../cbtbancor
 
 ##################################################
 
@@ -24,8 +24,8 @@ cleos push action cbtban1 newtoken '["creator","200000.0000 EOS", "1000000.0000 
 
 cleos push action eosio.token issue '[user, "10000.0000 EOS", 123]' -p eosio
 
-cleos push action eosio.token transfer '[ "user", "cbtban1", "1000.0000 EOS", "tester-name" ]' -p user@active
-cleos push action cbtban1 sell '[tester, "1000.0000 CBT", user]' -p user
+cleos push action eosio.token transfer '[ "otonionscube", "cbtban1", "1000.0000 EOS", "user-name" ]' -p otonionscube@active
+cleos push action cbtban1 sell '[user, "1000.0000 CBT"]' -p user
 # >>>buy from:user to:cbtban1 quantity:1000.0000 
 # EOS supply:10000000000.0000 CBTCORE base.balance:1000000.0000 CBT quote.balance 200000.0000 EOS
 # ... convert from:1000.0000 EOS to:4,CBT
